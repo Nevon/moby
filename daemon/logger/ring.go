@@ -2,6 +2,7 @@ package logger // import "github.com/docker/docker/daemon/logger"
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 )
@@ -73,7 +74,12 @@ func (r *RingLogger) Log(msg *Message) error {
 	if r.closed() {
 		return errClosed
 	}
-	return r.buffer.Enqueue(msg)
+	if err := r.buffer.Enqueue(msg); err != nil {
+		logDriverError(r.l.Name(), string(msg.Line), err)
+		return nil
+	}
+
+	return nil
 }
 
 // Name returns the name of the underlying logger
@@ -170,7 +176,7 @@ func (r *messageRing) Enqueue(m *Message) error {
 	if mSize+r.sizeBytes > r.maxBytes && len(r.queue) > 0 {
 		r.wait.Signal()
 		r.mu.Unlock()
-		return nil
+		return fmt.Errorf("log buffer is full")
 	}
 
 	r.queue = append(r.queue, m)

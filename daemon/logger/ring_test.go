@@ -50,12 +50,16 @@ func TestRingLogger(t *testing.T) {
 
 func TestRingCap(t *testing.T) {
 	r := newRing(5)
-	for i := 0; i < 10; i++ {
-		// queue messages with "0" to "10"
-		// the "5" to "10" messages should be dropped since we only allow 5 bytes in the buffer
+	for i := 0; i < 5; i++ {
+		// queue messages with "0" to "5"
 		if err := r.Enqueue(&Message{Line: []byte(strconv.Itoa(i))}); err != nil {
 			t.Fatal(err)
 		}
+	}
+
+	// Next message should not fit
+	if err := r.Enqueue(&Message{Line: []byte(strconv.Itoa(5))}); err == nil {
+		t.Fatal("Expected error when dropping log message due to full buffer")
 	}
 
 	// should have messages in the queue for "0" to "4"
@@ -69,14 +73,15 @@ func TestRingCap(t *testing.T) {
 		}
 	}
 
-	// queue a message that's bigger than the buffer cap
+	// queue a message that's bigger than the buffer cap. Because the queue is empty
+	// this one is not dropped
 	if err := r.Enqueue(&Message{Line: []byte("hello world")}); err != nil {
 		t.Fatal(err)
 	}
 
-	// queue another message that's bigger than the buffer cap
-	if err := r.Enqueue(&Message{Line: []byte("eat a banana")}); err != nil {
-		t.Fatal(err)
+	// queue another message that's bigger than the buffer cap. This one is dropped.
+	if err := r.Enqueue(&Message{Line: []byte("eat a banana")}); err == nil {
+		t.Fatal("Expected error when dropping log message due to full buffer")
 	}
 
 	m, err := r.Dequeue()
